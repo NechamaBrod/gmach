@@ -16,20 +16,22 @@ export default function Admin({ refreshKey = 0 }: AdminProps) {
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('requests')
-      .select('*, items:items(name)')
-      .order('created_at', { ascending: false });
-    if (error) setError('שגיאה בטעינת הבקשות');
-    else setRows((data || []) as Row[]);
-    setLoading(false);
-  };
-
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('requests')
+        .select('*, items:items(name)')
+        .order('created_at', { ascending: false });
+      if (!active) return;
+      if (error) setError('שגיאה בטעינת הבקשות');
+      else setRows((data || []) as Row[]);
+      setLoading(false);
+    })();
+    return () => {
+      active = false;
+    };
   }, [refreshKey]);
 
   const updateRequest = async (id: string, status: 'approved' | 'returned', itemId: string) => {
@@ -43,7 +45,11 @@ export default function Admin({ refreshKey = 0 }: AdminProps) {
       setError('שגיאה בעדכון הבקשה');
       return;
     }
-    await load();
+    const { data, error } = await supabase
+      .from('requests')
+      .select('*, items:items(name)')
+      .order('created_at', { ascending: false });
+    if (!error) setRows((data || []) as Row[]);
   };
 
   const statusBadge = (s: string) => {
